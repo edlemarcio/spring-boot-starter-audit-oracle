@@ -21,7 +21,7 @@
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
-      "redirectUris": ["http://localhost:8080/login/oauth2/code/keycloak"],
+      "redirectUris": ["http://localhost:8080/login/oauth2/code/demo-oidc"],
       "webOrigins": ["http://localhost:8080"],
       "attributes": {
         "pkce.code.challenge.method": "S256"
