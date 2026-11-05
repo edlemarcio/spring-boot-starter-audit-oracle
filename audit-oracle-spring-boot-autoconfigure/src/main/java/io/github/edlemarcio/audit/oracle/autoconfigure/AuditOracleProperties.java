@@ -31,11 +31,6 @@ public class AuditOracleProperties {
      */
     private String clearContextProcedure = "PKG_AUDITORIA_CONTEXT.CLEAR_CONTEXT";
 
-    /**
-     * Whether missing identity must prevent an audited operation.
-     */
-    private boolean failOnMissingIdentity = true;
-
     public boolean isEnabled() {
         return enabled;
     }
@@ -68,11 +63,4 @@ public class AuditOracleProperties {
         this.clearContextProcedure = clearContextProcedure;
     }
 
-    public boolean isFailOnMissingIdentity() {
-        return failOnMissingIdentity;
-    }
-
-    public void setFailOnMissingIdentity(boolean failOnMissingIdentity) {
-        this.failOnMissingIdentity = failOnMissingIdentity;
-    }
 }
