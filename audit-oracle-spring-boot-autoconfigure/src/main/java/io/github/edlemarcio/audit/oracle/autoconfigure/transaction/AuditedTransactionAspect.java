@@ -30,7 +30,7 @@ public class AuditedTransactionAspect {
         this.transactionManager = transactionManager;
     }
 
-    @Around("@annotation(audited)")
+    @Around(value = "@annotation(audited)", argNames = "invocation,audited")
     public Object execute(ProceedingJoinPoint invocation, Audited audited) {
         TransactionTemplate transaction = new TransactionTemplate(transactionManager);
         transaction.setPropagationBehavior(audited.propagation().value());
