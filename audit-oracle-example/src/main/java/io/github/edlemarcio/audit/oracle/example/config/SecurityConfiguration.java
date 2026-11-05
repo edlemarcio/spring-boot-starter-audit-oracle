@@ -29,8 +29,8 @@ public class SecurityConfiguration {
         return http
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/", "/error", "/css/**", "/images/**").permitAll()
-                        .requestMatchers("/auditoria/**").hasAnyRole("AUDIT_VIEWER", "ADMIN")
-                        .requestMatchers("/clientes/**").hasAnyRole("USER", "ADMIN")
+                        .requestMatchers("/auditoria", "/auditoria/**").hasAnyRole("AUDIT_VIEWER", "ADMIN")
+                        .requestMatchers("/clientes", "/clientes/**").hasAnyRole("USER", "ADMIN")
                         .anyRequest().authenticated())
                 .oauth2Login(oauth2 -> oauth2
                         .authorizationEndpoint(endpoint ->
