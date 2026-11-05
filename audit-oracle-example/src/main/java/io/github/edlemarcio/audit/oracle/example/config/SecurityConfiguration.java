@@ -24,7 +24,8 @@ public class SecurityConfiguration {
     @Bean
     SecurityFilterChain applicationSecurity(
             HttpSecurity http,
-            OAuth2AuthorizationRequestResolver authorizationRequestResolver
+            OAuth2AuthorizationRequestResolver authorizationRequestResolver,
+            org.springframework.security.core.authority.mapping.GrantedAuthoritiesMapper authoritiesMapper
     ) throws Exception {
         return http
                 .authorizeHttpRequests(authorize -> authorize
@@ -34,7 +35,8 @@ public class SecurityConfiguration {
                         .anyRequest().authenticated())
                 .oauth2Login(oauth2 -> oauth2
                         .authorizationEndpoint(endpoint ->
-                                endpoint.authorizationRequestResolver(authorizationRequestResolver)))
+                                endpoint.authorizationRequestResolver(authorizationRequestResolver))
+                        .userInfoEndpoint(userInfo -> userInfo.userAuthoritiesMapper(authoritiesMapper)))
                 .logout(logout -> logout.logoutSuccessUrl("/"))
                 .build();
     }
