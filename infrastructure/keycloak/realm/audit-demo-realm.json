@@ -1,0 +1,96 @@
+{
+  "realm": "audit-demo",
+  "enabled": true,
+  "displayName": "Audit Oracle Demo",
+  "registrationAllowed": false,
+  "roles": {
+    "realm": [
+      { "name": "USER" },
+      { "name": "AUDIT_VIEWER" },
+      { "name": "ADMIN" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "audit-example",
+      "name": "Audit Oracle Example",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["http://localhost:8080/login/oauth2/code/keycloak"],
+      "webOrigins": ["http://localhost:8080"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "protocolMappers": [
+        {
+          "name": "cpf",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "cpf",
+            "claim.name": "cpf",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "realm roles in ID token",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "claim.name": "realm_access.roles",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "usuario.teste",
+      "enabled": true,
+      "email": "usuario.teste@example.local",
+      "emailVerified": true,
+      "firstName": "Usuario",
+      "lastName": "Teste",
+      "attributes": { "cpf": ["11122233344"] },
+      "requiredActions": ["UPDATE_PASSWORD"],
+      "realmRoles": ["USER"]
+    },
+    {
+      "username": "auditor.teste",
+      "enabled": true,
+      "email": "auditor.teste@example.local",
+      "emailVerified": true,
+      "firstName": "Auditor",
+      "lastName": "Teste",
+      "attributes": { "cpf": ["22233344455"] },
+      "requiredActions": ["UPDATE_PASSWORD"],
+      "realmRoles": ["USER", "AUDIT_VIEWER"]
+    },
+    {
+      "username": "admin.teste",
+      "enabled": true,
+      "email": "admin.teste@example.local",
+      "emailVerified": true,
+      "firstName": "Administrador",
+      "lastName": "Teste",
+      "attributes": { "cpf": ["33344455566"] },
+      "requiredActions": ["UPDATE_PASSWORD"],
+      "realmRoles": ["USER", "AUDIT_VIEWER", "ADMIN"]
+    }
+  ]
+}
