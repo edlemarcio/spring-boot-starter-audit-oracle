@@ -18,18 +18,18 @@
                         Demonstração de auditoria transacional com Oracle Application Context,
                         triggers e identidade autenticada.
                     </p>
-                    <div th:if="${#authorization.expression('isAuthenticated()')}" class="alert alert-success mt-4">
+                    <div th:if="${authenticated}" class="alert alert-success mt-4">
                         <strong>Bem-vindo(a),</strong>
                         <span th:text="${#authentication.name}">usuário</span>
                     </div>
                     <div class="d-flex flex-wrap gap-2 mt-4">
-                        <a class="btn btn-primary btn-lg" th:if="${#authorization.expression('!isAuthenticated()')}"
+                        <a class="btn btn-primary btn-lg" th:if="${!authenticated}"
                            th:href="@{/oauth2/authorization/keycloak}">Entrar</a>
-                        <a class="btn btn-primary" th:if="${#authorization.expression('isAuthenticated()')}"
+                        <a class="btn btn-primary" th:if="${authenticated}"
                            th:href="@{/clientes}">Abrir CRUD de clientes</a>
-                        <a class="btn btn-outline-secondary" th:if="${#authorization.expression('isAuthenticated()')}"
+                        <a class="btn btn-outline-secondary" th:if="${authenticated}"
                            th:href="@{/auditoria}">Consultar auditoria</a>
-                        <form th:if="${#authorization.expression('isAuthenticated()')}" th:action="@{/logout}" method="post">
+                        <form th:if="${authenticated}" th:action="@{/logout}" method="post">
                             <button class="btn btn-outline-danger" type="submit">Sair</button>
                         </form>
                     </div>
