@@ -1,0 +1,68 @@
+CREATE OR REPLACE TRIGGER TRG_CLIENTE_AUDIT
+AFTER INSERT OR UPDATE OR DELETE ON CLIENTE
+FOR EACH ROW
+DECLARE
+    V_CPF VARCHAR2(11);
+    V_NOME VARCHAR2(200);
+    V_REQUEST_ID VARCHAR2(128);
+    V_OPERATION VARCHAR2(10);
+    V_RECORD_ID VARCHAR2(200);
+    V_OLD_VALUES CLOB;
+    V_NEW_VALUES CLOB;
+BEGIN
+    V_CPF := SYS_CONTEXT('CTX_AUDITORIA', 'CPF');
+    V_NOME := SYS_CONTEXT('CTX_AUDITORIA', 'NOME');
+    V_REQUEST_ID := SYS_CONTEXT('CTX_AUDITORIA', 'REQUEST_ID');
+
+    IF V_CPF IS NULL OR V_NOME IS NULL OR V_REQUEST_ID IS NULL THEN
+        RAISE_APPLICATION_ERROR(-20010, 'Missing audit context for CLIENTE DML');
+    END IF;
+
+    IF INSERTING THEN
+        V_OPERATION := 'INSERT';
+        V_RECORD_ID := TO_CHAR(:NEW.ID);
+        V_NEW_VALUES := JSON_OBJECT(
+            'id' VALUE :NEW.ID,
+            'cpf' VALUE :NEW.CPF,
+            'nome' VALUE :NEW.NOME,
+            'email' VALUE :NEW.EMAIL
+            RETURNING CLOB
+        );
+    ELSIF UPDATING THEN
+        V_OPERATION := 'UPDATE';
+        V_RECORD_ID := TO_CHAR(:NEW.ID);
+        V_OLD_VALUES := JSON_OBJECT(
+            'id' VALUE :OLD.ID,
+            'cpf' VALUE :OLD.CPF,
+            'nome' VALUE :OLD.NOME,
+            'email' VALUE :OLD.EMAIL
+            RETURNING CLOB
+        );
+        V_NEW_VALUES := JSON_OBJECT(
+            'id' VALUE :NEW.ID,
+            'cpf' VALUE :NEW.CPF,
+            'nome' VALUE :NEW.NOME,
+            'email' VALUE :NEW.EMAIL
+            RETURNING CLOB
+        );
+    ELSIF DELETING THEN
+        V_OPERATION := 'DELETE';
+        V_RECORD_ID := TO_CHAR(:OLD.ID);
+        V_OLD_VALUES := JSON_OBJECT(
+            'id' VALUE :OLD.ID,
+            'cpf' VALUE :OLD.CPF,
+            'nome' VALUE :OLD.NOME,
+            'email' VALUE :OLD.EMAIL
+            RETURNING CLOB
+        );
+    END IF;
+
+    INSERT INTO AUDIT_LOG (
+        USER_CPF, USER_NAME, OPERATION, TABLE_NAME,
+        RECORD_ID, REQUEST_ID, OLD_VALUES, NEW_VALUES
+    ) VALUES (
+        V_CPF, V_NOME, V_OPERATION, 'CLIENTE',
+        V_RECORD_ID, V_REQUEST_ID, V_OLD_VALUES, V_NEW_VALUES
+    );
+END;
+/
