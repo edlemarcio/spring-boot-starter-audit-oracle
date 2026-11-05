@@ -1,13 +1,13 @@
 # Spring Boot Starter Audit Oracle
 
-Biblioteca reutilizável para propagar a identidade autenticada de uma aplicação Spring Boot até o contexto de sessão do Oracle Database, permitindo que triggers registrem o usuário responsável pelas operações de persistência.
+Biblioteca para propagar a identidade autenticada de uma aplicação Spring Boot até o contexto de sessão do Oracle Database, permitindo que triggers registrem o usuário responsável pelas operações de persistência.
 
-> **Status:** implementação inicial.
+> **Status:** implementação inicial em andamento. A estrutura, contratos básicos, anotação transacional, scripts Oracle demonstrativos e aplicação web inicial estão versionados. A solução ainda precisa de build validado e testes de integração Oracle/concor­rência antes de qualquer uso produtivo.
 
 ## Objetivos
 
 - Registrar CPF, nome e identificador de requisição nas auditorias produzidas por triggers Oracle.
-- Integrar-se ao ciclo de vida das transações Spring/JPA.
+- Integrar a definição e a limpeza do contexto ao ciclo de vida transacional.
 - Evitar vazamento de identidade entre requisições quando conexões são reutilizadas pelo HikariCP.
 - Manter o starter independente do provedor de identidade e da interface da aplicação.
 - Demonstrar a solução em uma aplicação web separada.
@@ -15,62 +15,88 @@ Biblioteca reutilizável para propagar a identidade autenticada de uma aplicaç�
 ## Princípios arquiteturais
 
 1. O starter não depende de Keycloak, Thymeleaf ou de um cliente OAuth2 específico.
-2. A aplicação consumidora fornece a identidade autenticada por meio de um contrato pequeno e extensível.
-3. A identidade só é aceita após autenticação e validação pelo mecanismo de segurança da aplicação.
-4. O contexto Oracle é estado de sessão; portanto, deve ser inicializado e limpo com controle explícito do ciclo de vida da conexão.
-5. A auditoria transacional acompanha o commit/rollback da operação de negócio.
-6. Falhas na limpeza não podem devolver uma conexão potencialmente contaminada ao pool.
+2. A aplicação consumidora fornece a identidade autenticada por meio de `AuditIdentityProvider`.
+3. A identidade deve vir de um principal autenticado e validado; nunca de parâmetros HTTP arbitrários.
+4. O contexto Oracle é estado de sessão e não é limpo automaticamente por COMMIT/ROLLBACK.
+5. O contexto é associado à conexão JDBC vinculada à transação e removido antes do encerramento da operação auditada.
+6. Falhas de limpeza devem invalidar a conexão para impedir seu retorno contaminado ao pool.
+7. O padrão de auditoria DML grava na mesma transação da operação de negócio.
 
-## Componentes
+## Módulos
 
-| Componente | Responsabilidade |
-| --- | --- |
-| `audit-oracle-core` | Tipos e contratos mínimos, sem dependências de infraestrutura |
-| `audit-oracle-spring-boot-autoconfigure` | Configuração automática e integração Spring |
-| `audit-oracle-spring-boot-starter` | Dependência de conveniência para consumidores |
-| `audit-oracle-example` | Aplicação demonstrativa Thymeleaf, CRUD e consulta de auditoria |
-| `database/oracle-19c` | Scripts PL/SQL, contexto Oracle, tabelas e triggers |
-| `infrastructure/keycloak` | IdP usado exclusivamente no ambiente de demonstração |
-| `integration-tests` | Testes de integração, transação, concorrência e pool |
+| Módulo | Responsabilidade | Dependências de domínio |
+| --- | --- | --- |
+| `audit-oracle-core` | Contratos e tipos mínimos independentes de framework | Nenhuma |
+| `audit-oracle-spring-boot-autoconfigure` | Integração Spring, configuração e ciclo de vida Oracle | Spring Boot, JDBC, TX, AOP |
+| `audit-oracle-spring-boot-starter` | Dependência de conveniência | Auto-configuração |
+| `audit-oracle-example` | Aplicação web demonstrativa | Thymeleaf, JPA, Spring Security OIDC |
+| `database/oracle-19c` | Package, Application Context, tabelas e triggers | Oracle 19c |
+| `infrastructure/keycloak` | IdP usado exclusivamente no ambiente local | Keycloak |
 
-## Arquitetura de alto nível
+## Arquitetura
 
 ```text
 Aplicação consumidora
-  ├── mecanismo de autenticação escolhido pela aplicação
-  ├── contrato AuditIdentityProvider
-  └── Spring Data JPA / transações Spring
+  ├── autenticação escolhida pela aplicação
+  ├── AuditIdentityProvider
+  └── serviços anotados com @Audited
           |
           v
 Spring Boot Starter Audit Oracle
-  ├── resolução da identidade autenticada
-  ├── coordenação do contexto por transação/conexão
-  └── inicialização e limpeza segura da sessão Oracle
+  ├── TransactionTemplate
+  ├── OracleAuditContextManager
+  ├── contexto associado à Connection JDBC
+  └── limpeza / invalidação em caso de falha
           |
           v
 Oracle Database
-  ├── Application Context
-  ├── package PL/SQL confiável
-  ├── triggers DML
-  └── tabela de auditoria
+  ├── Application Context CTX_AUDITORIA
+  ├── PKG_AUDITORIA_CONTEXT
+  ├── trigger DML
+  └── AUDIT_LOG
 ```
 
-O Keycloak aparece somente no ambiente de demonstração: ele emite tokens OIDC/JWT, enquanto a aplicação exemplo usa os mecanismos padrão do Spring Security. Nenhum módulo do starter depende de bibliotecas ou APIs específicas do Keycloak.
+O starter não interpreta JWT e não autentica usuários. A aplicação fornece um `AuditIdentityProvider`. O exemplo implementa esse contrato a partir de um `OidcUser` autenticado pelo Spring Security.
+
+### Limite do Keycloak
+
+Keycloak é somente o provedor OIDC do ambiente de demonstração. O starter e seus módulos não dependem de SDK, adapter, classe, configuração ou API específica do Keycloak.
+
+## Como funciona a transação auditada
+
+O consumidor anota métodos de serviço que executam DML com `@Audited`. A anotação abre a transação por meio do `PlatformTransactionManager`, obtém a identidade do provider, define o contexto na conexão vinculada à transação, executa o método e limpa o contexto antes da conclusão da operação.
+
+Exemplo:
+
+```java
+@Service
+public class ClienteService {
+
+    @Audited
+    public Cliente salvar(Cliente cliente) {
+        return repository.save(cliente);
+    }
+}
+```
+
+A anotação `@Audited` é dona do limite transacional do método. Não combine `@Audited` e uma segunda anotação `@Transactional` conflitante no mesmo método. Configure propagação com `@Audited(propagation = Propagation.REQUIRES_NEW)` quando necessário.
+
+O gerenciador mantém estado por identidade de objeto da conexão JDBC, não por ThreadLocal. Escopos aninhados na mesma conexão compartilham a identidade; conexões distintas, como em REQUIRES_NEW, mantêm contextos independentes. Esse comportamento precisa ser confirmado pelos testes de integração Oracle antes da versão estável.
 
 ## Tecnologias previstas
 
 - Java 21
 - Spring Boot 3.5.x
-- Spring Framework / Spring Security
-- Spring Data JPA e Hibernate
+- Spring Data JPA / Hibernate
+- Spring JDBC e Spring Transactions
+- Spring AOP
 - HikariCP
 - Oracle Database 19c
 - Maven
 - JUnit 5
-- Thymeleaf (somente no projeto de exemplo)
-- Docker Compose (ambiente local)
-
-As versões serão centralizadas no POM raiz.
+- Thymeleaf (somente no exemplo)
+- Spring Security OAuth2 Client / OIDC (somente no exemplo)
+- Docker Compose
 
 ## Estrutura do repositório
 
@@ -78,47 +104,133 @@ As versões serão centralizadas no POM raiz.
 .
 ├── README.md
 ├── pom.xml
+├── docker-compose.yml
+├── env.example
 ├── audit-oracle-core/
 ├── audit-oracle-spring-boot-autoconfigure/
 ├── audit-oracle-spring-boot-starter/
 ├── audit-oracle-example/
 ├── database/oracle-19c/
 ├── infrastructure/keycloak/
-├── integration-tests/
-├── docs/
-└── docker-compose.yml
+└── docs/
 ```
 
-## Ambiente de demonstração
+## Ambiente local
 
-O ambiente local deverá oferecer Oracle Database para persistência e triggers, Keycloak para autenticação e emissão de tokens de teste e uma aplicação Spring Boot com página de boas-vindas, login, CRUD de clientes e consulta dos logs de auditoria.
+### Pré-requisitos
 
-O realm, os usuários de teste e o client OIDC serão versionados como configuração de demonstração. Credenciais locais não deverão ser credenciais de produção nem segredos reais versionados.
+- JDK 21
+- Maven 3.9+
+- Docker Engine e Docker Compose plugin
+- Acesso ao Oracle Container Registry e aceite dos termos da imagem Enterprise Oracle Database 19c.
 
-## Execução
-
-Os comandos definitivos serão publicados quando o Docker Compose e os módulos executáveis estiverem implementados. O fluxo desejado:
+### Subir Oracle e Keycloak
 
 ```bash
+cp env.example .env
+# Edite .env e defina senhas locais
+docker login container-registry.oracle.com
 docker compose up -d
-./mvnw clean verify
-./mvnw -pl audit-oracle-example spring-boot:run
+docker compose ps
 ```
 
-Consulte os READMEs de cada módulo para detalhes de arquitetura, configuração e testes.
+O Compose inicia:
+- Oracle Database 19c em `localhost:1521`;
+- Keycloak em `http://localhost:8081`.
+
+A imagem Enterprise Oracle 19c exige acesso ao Oracle Container Registry e aceite dos termos aplicáveis. A imagem não é redistribuída por este projeto.
+
+### Preparar o schema Oracle
+
+Conecte ao PDB `ORCLPDB1` com uma conta administrativa. Para um ambiente local de demonstração, crie o usuário e conceda os privilégios necessários. Ajuste senha e tablespace conforme sua instalação:
+
+```sql
+CREATE USER audit_app IDENTIFIED BY "CHANGE_ME"
+  DEFAULT TABLESPACE USERS
+  TEMPORARY TABLESPACE TEMP
+  QUOTA UNLIMITED ON USERS;
+
+GRANT CREATE SESSION, CREATE TABLE, CREATE PROCEDURE, CREATE TRIGGER,
+      CREATE ANY CONTEXT TO audit_app;
+```
+
+Em ambientes reais, prefira separar o usuário de implantação do usuário runtime e conceder apenas os privilégios estritamente necessários. O package confiável deve ser executável somente pelo usuário técnico da aplicação.
+
+Execute na ordem:
+
+1. `database/oracle-19c/01_audit_context.sql`
+2. `database/oracle-19c/02_audit_tables.sql`
+3. `database/oracle-19c/03_cliente_audit_triggers.sql`
+
+Consulte [database/oracle-19c/README.md](database/oracle-19c/README.md).
+
+### Keycloak
+
+O realm `audit-demo` é importado automaticamente pelo container. O client OIDC `audit-example` usa Authorization Code com PKCE e é configurado como public client no ambiente local.
+
+Usuários importados:
+
+| Usuário | CPF | Permissões |
+| --- | --- | --- |
+| `usuario.teste` | 11122233344 | USER |
+| `auditor.teste` | 22233344455 | USER, AUDIT_VIEWER |
+| `admin.teste` | 33344455566 | USER, AUDIT_VIEWER, ADMIN |
+
+Os usuários exigem atualização de senha no primeiro acesso. Defina as senhas pelo Admin Console do Keycloak; nenhuma senha pessoal de teste é armazenada no repositório.
+
+Detalhes: [infrastructure/keycloak/README.md](infrastructure/keycloak/README.md).
+
+### Executar a aplicação de exemplo
+
+A aplicação roda no host para que o redirect OIDC seja resolvido em `localhost`. Exporte as variáveis de `.env`:
+
+```bash
+set -a
+source .env
+set +a
+mvn -pl audit-oracle-example spring-boot:run
+```
+
+Abra [http://localhost:8080](http://localhost:8080), clique em Entrar e autentique-se com um dos usuários de teste.
+
+### Funcionalidades do exemplo
+
+- Página de boas-vindas Thymeleaf.
+- Login OIDC pelo Spring Security.
+- CRUD de clientes com INSERT, UPDATE e DELETE auditados.
+- Consulta dos eventos na tabela `AUDIT_LOG`, restrita às roles `AUDIT_VIEWER` e `ADMIN`.
+
+A trigger de demonstração captura DML. SELECT não é capturado por trigger DML e não faz parte da auditoria implementada.
+
+## Build e testes
+
+```bash
+mvn clean verify
+```
+
+Os testes unitários do core e o build Maven são o primeiro gate. Testes reais de rollback, concorrência, `REQUIRES_NEW`, identidade ausente e reutilização HikariCP dependem de Oracle 19c e serão adicionados antes de considerar o starter pronto para produção.
+
+## Documentação adicional
+
+- [Arquitetura e decisões](docs/architecture.md)
+- [Status da implementação e critérios de aceite](docs/implementation-status.md)
+- [Guia de desenvolvimento local](docs/guides/local-development.md)
+- [Oracle 19c e scripts](database/oracle-19c/README.md)
+- [Aplicação de exemplo](audit-oracle-example/README.md)
+- [Starter](audit-oracle-spring-boot-starter/README.md)
+- [Auto-configuração](audit-oracle-spring-boot-autoconfigure/README.md)
+- [Core](audit-oracle-core/README.md)
+- [Keycloak](infrastructure/keycloak/README.md)
 
 ## Segurança e limitações
 
-- Claims de CPF e nome devem vir de identidade autenticada e validada pela aplicação; não devem ser aceitos diretamente de parâmetros HTTP.
-- O package Oracle que define o contexto deve ter privilégios restritos. A autorização de execução do package, isoladamente, não prova a autenticidade criptográfica do usuário.
-- O contexto Oracle pertence à sessão e não é automaticamente limpo por COMMIT ou ROLLBACK.
-- A solução deve provar, por testes de integração, o isolamento entre transações, o comportamento de `REQUIRES_NEW`, o rollback e a limpeza antes da reutilização da conexão.
-- Triggers DML cobrem INSERT, UPDATE e DELETE. SELECT exige mecanismo de auditoria separado.
-
-## Documentação
-
-A documentação global e os documentos específicos de cada módulo serão mantidos junto ao código. Diagramas, scripts de banco, configuração do ambiente e cenários de teste também serão versionados.
+- CPF e nome são dados pessoais. Defina retenção, controle de acesso, mascaramento e base legal conforme LGPD.
+- O package PL/SQL não prova a identidade do usuário final; ele confia na aplicação que o invoca.
+- A trigger falha de forma segura quando o contexto está ausente.
+- A auditoria DML está na mesma transação do negócio: rollback reverte ambos.
+- SELECT exige mecanismo complementar.
+- O projeto ainda está em desenvolvimento e não deve ser tratado como biblioteca pronta para produção.
 
 ## Licença
 
-Apache-2.0 (a confirmar na publicação da primeira versão).
+A licença será formalizada antes da primeira publicação estável.
