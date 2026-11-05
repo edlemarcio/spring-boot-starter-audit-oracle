@@ -69,6 +69,23 @@ class OracleAuditContextManagerTest {
     }
 
     @Test
+    void invalidatesConnectionWhenDatabaseSessionContainsUnexpectedContext() throws Exception {
+        Statement statement = mock(Statement.class);
+        ResultSet resultSet = mock(ResultSet.class);
+        when(connection.createStatement()).thenReturn(statement);
+        when(statement.executeQuery(anyString())).thenReturn(resultSet);
+        when(resultSet.next()).thenReturn(true);
+        when(resultSet.getString(1)).thenReturn("12345678901");
+        when(resultSet.getString(2)).thenReturn("Previous User");
+        when(resultSet.getString(3)).thenReturn("previous-request");
+
+        assertThrows(AuditContextException.class, () -> manager.open(
+                new AuditIdentity("12345678901", "Maria Silva", "req-1")));
+
+        verify(connection).abort(any(java.util.concurrent.Executor.class));
+    }
+
+    @Test
     void rejectsDifferentIdentityInsideSameTransactionConnection() {
         OracleAuditContextManager.Scope outer = manager.open(
                 new AuditIdentity("12345678901", "Maria Silva", "req-1"));
