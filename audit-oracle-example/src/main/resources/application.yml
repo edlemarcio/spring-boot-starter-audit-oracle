@@ -20,15 +20,15 @@ spring:
     oauth2:
       client:
         registration:
-          keycloak:
-            provider: keycloak
+          demo-oidc:
+            provider: demo-oidc
             client-id: ${OIDC_CLIENT_ID:audit-example}
             authorization-grant-type: authorization_code
             client-authentication-method: none
             scope: openid, profile, email
-            redirect-uri: "${OIDC_REDIRECT_URI:http://localhost:8080/login/oauth2/code/keycloak}"
+            redirect-uri: "${OIDC_REDIRECT_URI:http://localhost:8080/login/oauth2/code/demo-oidc}"
         provider:
-          keycloak:
+          demo-oidc:
             issuer-uri: ${OIDC_ISSUER_URI:http://localhost:8081/realms/audit-demo}
 
 server:
