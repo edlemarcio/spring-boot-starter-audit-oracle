@@ -49,7 +49,7 @@ class OracleAuditContextTransactionOrderTest {
         order.verify(callableStatement).execute(); // SET_CONTEXT
         order.verify(connection).commit();
         order.verify(callableStatement).execute(); // CLEAR_CONTEXT in afterCompletion
-        verify(connection).close();
+        order.verify(connection).close();
     }
     @Test
     void keepsOuterAndRequiresNewContextsOnSeparateConnections() throws Exception {
