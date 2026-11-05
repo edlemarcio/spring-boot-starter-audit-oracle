@@ -18,6 +18,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -124,7 +125,7 @@ class OracleAuditContextTransactionOrderTest {
                     new AuditIdentity("10987654321", "Second User", "request-second"),
                     ready, continueWork));
 
-            ready.await();
+            ready.await(10, TimeUnit.SECONDS);
             continueWork.countDown();
             first.get();
             second.get();
