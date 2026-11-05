@@ -188,6 +188,7 @@ A aplicação roda no host para que o redirect OIDC seja resolvido em `localhost
 set -a
 source .env
 set +a
+mvn -pl audit-oracle-example -am install -DskipTests
 mvn -pl audit-oracle-example spring-boot:run
 ```
 
