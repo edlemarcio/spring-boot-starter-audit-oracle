@@ -32,6 +32,7 @@ A aplicação exemplo roda no host para que o redirect OIDC use `localhost`.
 set -a
 source .env
 set +a
+mvn -pl audit-oracle-example -am install -DskipTests
 mvn -pl audit-oracle-example spring-boot:run
 ```
 
