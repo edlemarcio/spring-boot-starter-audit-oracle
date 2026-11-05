@@ -69,7 +69,9 @@ public class OracleAuditContextManager {
             synchronized (activeContexts) {
                 ContextState state = activeContexts.get(connection);
                 if (state == null) {
-                    throw new AuditContextException("Audit context scope is not registered for this connection");
+                    invalidate(connection);
+                    throw new AuditContextException(
+                            "Audit context scope is not registered; connection was invalidated");
                 }
                 if (state.decrement() > 0) {
                     return;
@@ -80,9 +82,13 @@ public class OracleAuditContextManager {
                     activeContexts.remove(connection);
                 } catch (SQLException clearFailure) {
                     activeContexts.remove(connection);
-                    invalidate(connection);
+                    try {
+                        invalidate(connection);
+                    } catch (AuditContextException invalidationFailure) {
+                        clearFailure.addSuppressed(invalidationFailure);
+                    }
                     throw new AuditContextException(
-                            "Could not clear Oracle audit context; connection was invalidated", clearFailure);
+                            "Could not clear Oracle audit context; connection invalidation was attempted", clearFailure);
                 }
             }
         } finally {
@@ -121,7 +127,11 @@ public class OracleAuditContextManager {
                 clearContext(connection);
             } catch (SQLException clearFailure) {
                 failure.addSuppressed(clearFailure);
-                invalidate(connection);
+                try {
+                    invalidate(connection);
+                } catch (AuditContextException invalidationFailure) {
+                    failure.addSuppressed(invalidationFailure);
+                }
             }
             throw failure;
         }
@@ -141,11 +151,14 @@ public class OracleAuditContextManager {
             } else {
                 connection.abort(Runnable::run);
             }
-        } catch (Exception ignored) {
+        } catch (Exception firstFailure) {
             try {
                 connection.abort(Runnable::run);
-            } catch (Exception ignoredAgain) {
-                // The original cleanup error is preserved by the caller.
+            } catch (Exception abortFailure) {
+                firstFailure.addSuppressed(abortFailure);
+                throw new AuditContextException(
+                        "Could not invalidate a JDBC connection with an unknown Oracle audit context",
+                        firstFailure);
             }
         }
     }
