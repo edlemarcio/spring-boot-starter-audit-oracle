@@ -10,6 +10,8 @@ public record AuditLogEntry(
         String operation,
         String tableName,
         String recordId,
-        String requestId
+        String requestId,
+        String oldValues,
+        String newValues
 ) {
 }
