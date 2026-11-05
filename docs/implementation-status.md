@@ -10,6 +10,7 @@ Este documento diferencia estrutura criada de funcionalidade efetivamente implem
 | Anotação `@Audited` e limite transacional | Implementados inicialmente | Testes de propagação e rollback |
 | Gerenciamento do contexto Oracle | Implementado inicialmente | Testes reais com Oracle 19c |
 | Scripts PL/SQL e triggers DML | Implementados para CLIENTE | Executar scripts em Oracle 19c e validar JSON/rollback |
+| Auditoria de SELECT via Oracle FGA | Pendente | Criar política FGA e integrar trail ao painel sem misturar com triggers DML |
 | Aplicação Thymeleaf | Implementada inicialmente | Executar login, CRUD e consulta de logs |
 | Keycloak demo | Realm e client versionados | Importação real, login OIDC e roles |
 | Docker Compose | Oracle 19c e Keycloak declarados | Subir em checkout limpo com acesso ao registry |
