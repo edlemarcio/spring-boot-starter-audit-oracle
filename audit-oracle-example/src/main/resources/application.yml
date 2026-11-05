@@ -40,4 +40,3 @@ audit:
     context-namespace: CTX_AUDITORIA
     set-context-procedure: PKG_AUDITORIA_CONTEXT.SET_CONTEXT
     clear-context-procedure: PKG_AUDITORIA_CONTEXT.CLEAR_CONTEXT
-    fail-on-missing-identity: true
