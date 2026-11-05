@@ -3,6 +3,9 @@ package io.github.edlemarcio.audit.oracle.autoconfigure.oracle;
 import io.github.edlemarcio.audit.oracle.autoconfigure.AuditOracleProperties;
 import io.github.edlemarcio.audit.oracle.core.AuditIdentity;
 import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.datasource.ConnectionHolder;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -11,6 +14,10 @@ import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -89,6 +96,83 @@ class OracleAuditContextTransactionOrderTest {
         verify(innerConnection).commit();
         verify(outerConnection).close();
         verify(innerConnection).close();
+    }
+
+
+    @Test
+    void isolatesTwoConcurrentUserContextsOnDifferentConnections() throws Exception {
+        DataSource dataSource = mock(DataSource.class);
+        Connection firstConnection = mockConnection();
+        Connection secondConnection = mockConnection();
+        CallableStatement firstCalls = mock(CallableStatement.class);
+        CallableStatement secondCalls = mock(CallableStatement.class);
+        when(firstConnection.prepareCall(anyString())).thenReturn(firstCalls);
+        when(secondConnection.prepareCall(anyString())).thenReturn(secondCalls);
+
+        var manager = new OracleAuditContextManager(dataSource, new AuditOracleProperties());
+        var ready = new CountDownLatch(2);
+        var continueWork = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+
+        try {
+            Future<?> first = executor.submit(() -> runConcurrentTransaction(
+                    dataSource, manager, firstConnection,
+                    new AuditIdentity("12345678901", "First User", "request-first"),
+                    ready, continueWork));
+            Future<?> second = executor.submit(() -> runConcurrentTransaction(
+                    dataSource, manager, secondConnection,
+                    new AuditIdentity("10987654321", "Second User", "request-second"),
+                    ready, continueWork));
+
+            ready.await();
+            continueWork.countDown();
+            first.get();
+            second.get();
+        } finally {
+            executor.shutdownNow();
+        }
+
+        verify(firstCalls).setString(1, "12345678901");
+        verify(firstCalls).setString(2, "First User");
+        verify(firstCalls).setString(3, "request-first");
+        verify(secondCalls).setString(1, "10987654321");
+        verify(secondCalls).setString(2, "Second User");
+        verify(secondCalls).setString(3, "request-second");
+        verify(firstCalls, times(2)).execute();
+        verify(secondCalls, times(2)).execute();
+    }
+
+    private void runConcurrentTransaction(
+            DataSource dataSource,
+            OracleAuditContextManager manager,
+            Connection connection,
+            AuditIdentity identity,
+            CountDownLatch ready,
+            CountDownLatch continueWork
+    ) {
+        TransactionSynchronizationManager.bindResource(dataSource, new ConnectionHolder(connection));
+        TransactionSynchronizationManager.initSynchronization();
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        try {
+            try (OracleAuditContextManager.Scope ignored = manager.open(identity)) {
+                ready.countDown();
+                continueWork.await();
+            }
+            for (TransactionSynchronization synchronization
+                    : TransactionSynchronizationManager.getSynchronizations()) {
+                synchronization.afterCompletion(TransactionSynchronization.STATUS_COMMITTED);
+            }
+        } catch (Exception exception) {
+            throw new RuntimeException(exception);
+        } finally {
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.clearSynchronization();
+            }
+            if (TransactionSynchronizationManager.hasResource(dataSource)) {
+                TransactionSynchronizationManager.unbindResource(dataSource);
+            }
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+        }
     }
 
     private Connection mockConnection() throws Exception {
