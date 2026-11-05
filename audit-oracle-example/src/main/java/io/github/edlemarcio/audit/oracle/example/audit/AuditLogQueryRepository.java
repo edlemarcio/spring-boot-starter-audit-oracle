@@ -18,7 +18,7 @@ public class AuditLogQueryRepository {
     public List<AuditLogEntry> findLatest() {
         return jdbcTemplate.query("""
                 SELECT ID, EVENT_TIMESTAMP, USER_CPF, USER_NAME, OPERATION,
-                       TABLE_NAME, RECORD_ID, REQUEST_ID
+                       TABLE_NAME, RECORD_ID, REQUEST_ID, OLD_VALUES, NEW_VALUES
                   FROM AUDIT_LOG
                  ORDER BY EVENT_TIMESTAMP DESC, ID DESC
                 """, (rs, rowNum) -> {
@@ -31,7 +31,9 @@ public class AuditLogQueryRepository {
                     rs.getString("OPERATION"),
                     rs.getString("TABLE_NAME"),
                     rs.getString("RECORD_ID"),
-                    rs.getString("REQUEST_ID")
+                    rs.getString("REQUEST_ID"),
+                    rs.getString("OLD_VALUES"),
+                    rs.getString("NEW_VALUES")
             );
         });
     }
