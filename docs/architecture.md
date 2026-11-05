@@ -38,3 +38,14 @@ O package confiável do Application Context deve ter privilégios mínimos. A pe
 ## Compatibilidade
 
 A primeira linha de implementação mira Java 21, Spring Boot 3.5.x, Spring Data JPA, HikariCP e Oracle 19c. A aplicação de exemplo usará OIDC padrão via Spring Security; Keycloak será somente o IdP do ambiente local.
+
+
+## Limite transacional explícito
+
+A API inicial usa `@Audited` em métodos de serviço. Essa anotação abre uma transação via `TransactionTemplate`, de modo que o contexto seja inicializado depois do início da transação e antes do DML. Métodos anotados não devem ter outra anotação `@Transactional` conflitante no mesmo método; a propagação é declarada em `@Audited`.
+
+O gerenciador mantém um mapa sincronizado por identidade de objeto da conexão JDBC. Isso permite contar escopos aninhados na mesma conexão e distinguir uma conexão suspensa da conexão usada por `REQUIRES_NEW`. O estado Oracle continua sendo a fonte efetiva lida pelas triggers; o mapa serve apenas para controlar propriedade e limpeza do escopo dentro da aplicação.
+
+A limpeza ocorre antes de o callback transacional retornar, portanto antes do commit/rollback final. Se a limpeza falhar, o escopo lança erro e a conexão é invalidada. Qualquer falha de leitura inicial do contexto também invalida a conexão porque a aplicação não pode provar que a sessão está limpa.
+
+Essa estratégia ainda precisa de testes de integração em Oracle 19c com o `JpaTransactionManager` e HikariCP reais. A implementação não deve ser considerada validada apenas por compilação.
