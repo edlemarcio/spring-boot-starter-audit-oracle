@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: audit-oracle-example
+  datasource:
+    url: ${DB_URL:jdbc:oracle:thin:@localhost:1521/FREEPDB1}
+    username: ${DB_USERNAME:audit_app}
+    password: ${DB_PASSWORD:change-me}
+    driver-class-name: oracle.jdbc.OracleDriver
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+      minimum-idle: 1
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+  security:
+    oauth2:
+      client:
+        registration:
+          keycloak:
+            provider: keycloak
+            client-id: ${OIDC_CLIENT_ID:audit-example}
+            client-secret: ${OIDC_CLIENT_SECRET:}
+            authorization-grant-type: authorization_code
+            scope: openid, profile, email
+            redirect-uri: "${OIDC_REDIRECT_URI:http://localhost:8080/login/oauth2/code/keycloak}"
+        provider:
+          keycloak:
+            issuer-uri: ${OIDC_ISSUER_URI:http://localhost:8081/realms/audit-demo}
+
+server:
+  port: ${SERVER_PORT:8080}
+
+audit:
+  oracle:
+    enabled: true
+    context-namespace: CTX_AUDITORIA
+    set-context-procedure: PKG_AUDITORIA_CONTEXT.SET_CONTEXT
+    clear-context-procedure: PKG_AUDITORIA_CONTEXT.CLEAR_CONTEXT
+    fail-on-missing-identity: true
