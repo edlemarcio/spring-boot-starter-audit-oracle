@@ -60,6 +60,12 @@ public class OracleAuditContextManager {
                 assertDatabaseContextIsEmpty(connection);
                 TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                     @Override
+                    public int getOrder() {
+                        // Run before DataSourceUtils connection-release synchronizations.
+                        return org.springframework.core.Ordered.HIGHEST_PRECEDENCE;
+                    }
+
+                    @Override
                     public void afterCompletion(int status) {
                         cleanupAfterCompletion(connection);
                     }
