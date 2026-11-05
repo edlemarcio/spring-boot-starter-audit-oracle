@@ -43,11 +43,15 @@ class OracleAuditContextManagerTest {
         manager = new OracleAuditContextManager(dataSource, properties);
 
         TransactionSynchronizationManager.bindResource(dataSource, new ConnectionHolder(connection));
+        TransactionSynchronizationManager.initSynchronization();
         TransactionSynchronizationManager.setActualTransactionActive(true);
     }
 
     @AfterEach
     void tearDown() {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
         if (TransactionSynchronizationManager.hasResource(dataSource)) {
             TransactionSynchronizationManager.unbindResource(dataSource);
         }
@@ -65,7 +69,17 @@ class OracleAuditContextManagerTest {
         verify(callableStatement, times(1)).execute();
 
         outer.close();
+        verify(callableStatement, times(1)).execute();
+
+        completeTransaction();
         verify(callableStatement, times(2)).execute();
+    }
+
+    private void completeTransaction() {
+        TransactionSynchronizationManager.getSynchronizations().forEach(
+                synchronization -> synchronization.afterCompletion(
+                        org.springframework.transaction.support.TransactionSynchronization.STATUS_COMMITTED));
+        TransactionSynchronizationManager.clearSynchronization();
     }
 
     @Test
