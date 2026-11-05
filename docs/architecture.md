@@ -49,3 +49,10 @@ O gerenciador mantém um mapa sincronizado por identidade de objeto da conexão 
 A limpeza ocorre antes de o callback transacional retornar, portanto antes do commit/rollback final. Se a limpeza falhar, o escopo lança erro e a conexão é invalidada. Qualquer falha de leitura inicial do contexto também invalida a conexão porque a aplicação não pode provar que a sessão está limpa.
 
 Essa estratégia ainda precisa de testes de integração em Oracle 19c com o `JpaTransactionManager` e HikariCP reais. A implementação não deve ser considerada validada apenas por compilação.
+
+
+## Autenticação no exemplo versus aplicações stateless
+
+A aplicação Thymeleaf é um cliente OIDC de navegador: após Authorization Code + PKCE, o Spring Security mantém a autenticação da interface em uma sessão web. Isso é uma decisão do exemplo para viabilizar o botão de login e as páginas server-rendered.
+
+O starter não exige sessão HTTP nem OAuth2 Client. Em uma API stateless, a aplicação pode implementar `AuditIdentityProvider` lendo o `JwtAuthenticationToken` já validado pelo Spring Security Resource Server e retornando CPF/nome dos claims confiáveis. A abstração do core não importa Spring Security e não conhece o formato do token.
