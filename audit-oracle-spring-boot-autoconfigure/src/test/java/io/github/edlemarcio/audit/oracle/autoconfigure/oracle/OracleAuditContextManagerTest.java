@@ -108,5 +108,6 @@ class OracleAuditContextManagerTest {
                 new AuditIdentity("10987654321", "Joao Souza", "req-2")));
 
         outer.close();
+        completeTransaction();
     }
 }
