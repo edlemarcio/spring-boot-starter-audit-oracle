@@ -18,7 +18,7 @@ Biblioteca para propagar a identidade autenticada de uma aplicação Spring Boot
 2. A aplicação consumidora fornece a identidade autenticada por meio de `AuditIdentityProvider`.
 3. A identidade deve vir de um principal autenticado e validado; nunca de parâmetros HTTP arbitrários.
 4. O contexto Oracle é estado de sessão e não é limpo automaticamente por COMMIT/ROLLBACK.
-5. O contexto é associado à conexão JDBC vinculada à transação e removido antes do encerramento da operação auditada.
+5. O contexto é associado à conexão JDBC vinculada à transação e removido em `afterCompletion`, depois do flush/commit ou rollback e antes da devolução da conexão ao pool.
 6. Falhas de limpeza devem invalidar a conexão para impedir seu retorno contaminado ao pool.
 7. O padrão de auditoria DML grava na mesma transação da operação de negócio.
 
@@ -64,7 +64,7 @@ Keycloak é somente o provedor OIDC do ambiente de demonstração. O starter e s
 
 ## Como funciona a transação auditada
 
-O consumidor anota métodos de serviço que executam DML com `@Audited`. A anotação abre a transação por meio do `PlatformTransactionManager`, obtém a identidade do provider, define o contexto na conexão vinculada à transação, executa o método e limpa o contexto antes da conclusão da operação.
+O consumidor anota métodos de serviço que executam DML com `@Audited`. A anotação abre a transação por meio do `PlatformTransactionManager`, obtém a identidade do provider e define o contexto na conexão vinculada à transação. Uma sincronização limpa o contexto em `afterCompletion`, depois do flush/commit ou rollback e antes de o gerenciador liberar a conexão ao pool.
 
 Exemplo:
 
