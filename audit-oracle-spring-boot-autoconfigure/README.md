@@ -19,7 +19,7 @@ public class ClienteService {
 }
 ```
 
-A anotação abre a transação usando o `PlatformTransactionManager`, resolve a identidade autenticada, define o contexto na conexão JDBC da transação, executa o método e limpa o contexto antes da conclusão.
+A anotação abre a transação usando o `PlatformTransactionManager`, resolve a identidade autenticada, define o contexto na conexão JDBC da transação e executa o método. Uma sincronização limpa o contexto em `afterCompletion`, depois do flush/commit ou rollback e antes da liberação da conexão.
 
 `@Audited` é responsável pelo limite transacional do método. Não coloque uma anotação `@Transactional` conflitante no mesmo método. A propagação é configurada pela própria anotação, por exemplo:
 
