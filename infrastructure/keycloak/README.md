@@ -9,7 +9,7 @@ O Docker Compose inicia Keycloak com `--import-realm` e monta `realm/audit-demo-
 - URL: http://localhost:8081
 - Realm: `audit-demo`
 - Client: `audit-example`
-- Redirect URI: `http://localhost:8080/login/oauth2/code/keycloak`
+- Redirect URI: `http://localhost:8080/login/oauth2/code/demo-oidc`
 - Flow: OpenID Connect Authorization Code
 - PKCE: S256
 - Client: public, sem client secret; PKCE será aplicado pela aplicação
@@ -32,7 +32,7 @@ Se não importar o realm, crie o realm `audit-demo` e um client OpenID Connect c
 - Client authentication: OFF (public client)
 - Standard flow: ON
 - Direct access grants: OFF
-- Valid redirect URI: `http://localhost:8080/login/oauth2/code/keycloak`
+- Valid redirect URI: `http://localhost:8080/login/oauth2/code/demo-oidc`
 - Web origin: `http://localhost:8080`
 - PKCE code challenge method: S256
 
