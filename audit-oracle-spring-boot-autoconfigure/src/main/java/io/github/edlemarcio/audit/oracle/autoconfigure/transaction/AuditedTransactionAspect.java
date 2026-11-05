@@ -11,6 +11,7 @@ import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Aspect
 public class AuditedTransactionAspect {
@@ -35,6 +36,11 @@ public class AuditedTransactionAspect {
         transaction.setPropagationBehavior(audited.propagation().value());
 
         return transaction.execute(status -> {
+            if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+                throw new AuditContextException(
+                        "@Audited requires an active transaction; use REQUIRED or REQUIRES_NEW propagation");
+            }
+
             AuditIdentity identity = identityProvider.getCurrentIdentity()
                     .orElseThrow(() -> new AuditContextException(
                             "No authenticated audit identity is available for this operation"));
