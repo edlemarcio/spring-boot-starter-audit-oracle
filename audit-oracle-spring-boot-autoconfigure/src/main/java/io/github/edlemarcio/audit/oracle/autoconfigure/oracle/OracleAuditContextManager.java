@@ -5,6 +5,8 @@ import io.github.edlemarcio.audit.oracle.autoconfigure.AuditOracleProperties;
 import io.github.edlemarcio.audit.oracle.autoconfigure.exception.AuditContextException;
 import io.github.edlemarcio.audit.oracle.core.AuditIdentity;
 import org.springframework.jdbc.datasource.DataSourceUtils;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import javax.sql.DataSource;
 import java.sql.CallableStatement;
@@ -18,9 +20,10 @@ import java.util.Map;
 /**
  * Manages Oracle application context on the transaction-bound JDBC connection.
  *
- * <p>State is keyed by the actual JDBC Connection object, not by a thread. This
- * allows a suspended outer transaction and a REQUIRES_NEW transaction to keep
- * independent context state.</p>
+ * <p>State is keyed by the actual JDBC Connection object, not by a thread. A
+ * transaction synchronization clears the context after commit/rollback, after
+ * the JPA provider has flushed pending SQL and before the transaction manager
+ * releases the connection back to the pool.</p>
  */
 public class OracleAuditContextManager {
 
@@ -35,6 +38,12 @@ public class OracleAuditContextManager {
     }
 
     public Scope open(AuditIdentity identity) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || !TransactionSynchronizationManager.isSynchronizationActive()) {
+            throw new AuditContextException(
+                    "Oracle audit context requires an active transaction with synchronization enabled");
+        }
+
         Connection connection = DataSourceUtils.getConnection(dataSource);
         try {
             synchronized (activeContexts) {
@@ -49,6 +58,12 @@ public class OracleAuditContextManager {
                 }
 
                 assertDatabaseContextIsEmpty(connection);
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCompletion(int status) {
+                        cleanupAfterCompletion(connection);
+                    }
+                });
                 setContext(connection, identity);
                 activeContexts.put(connection, new ContextState(identity));
                 return new Scope(this, connection);
@@ -70,7 +85,7 @@ public class OracleAuditContextManager {
         }
     }
 
-    private void close(Connection connection) {
+    private void releaseScope(Connection connection) {
         try {
             synchronized (activeContexts) {
                 ContextState state = activeContexts.get(connection);
@@ -79,26 +94,49 @@ public class OracleAuditContextManager {
                     throw new AuditContextException(
                             "Audit context scope is not registered; connection was invalidated");
                 }
-                if (state.decrement() > 0) {
-                    return;
-                }
-
-                try {
-                    clearContext(connection);
+                if (state.decrement() < 0) {
                     activeContexts.remove(connection);
-                } catch (SQLException clearFailure) {
-                    activeContexts.remove(connection);
-                    try {
-                        invalidate(connection);
-                    } catch (AuditContextException invalidationFailure) {
-                        clearFailure.addSuppressed(invalidationFailure);
-                    }
+                    invalidate(connection);
                     throw new AuditContextException(
-                            "Could not clear Oracle audit context; connection invalidation was attempted", clearFailure);
+                            "Audit context scope was closed more times than it was opened; connection was invalidated");
                 }
             }
         } finally {
             DataSourceUtils.releaseConnection(connection, dataSource);
+        }
+    }
+
+    /**
+     * Called by Spring after transaction completion. For JpaTransactionManager,
+     * this callback runs after the EntityManager commit/rollback (and its flush)
+     * but before transaction resources are unbound and the JDBC connection is
+     * returned to HikariCP.
+     */
+    private void cleanupAfterCompletion(Connection connection) {
+        synchronized (activeContexts) {
+            ContextState state = activeContexts.remove(connection);
+            if (state == null) {
+                return;
+            }
+
+            if (state.scopes() != 0) {
+                invalidate(connection);
+                throw new AuditContextException(
+                        "Audit context scopes were not closed before transaction completion; connection was invalidated");
+            }
+
+            try {
+                clearContext(connection);
+            } catch (SQLException clearFailure) {
+                try {
+                    invalidate(connection);
+                } catch (AuditContextException invalidationFailure) {
+                    clearFailure.addSuppressed(invalidationFailure);
+                }
+                throw new AuditContextException(
+                        "Could not clear Oracle audit context after transaction completion; connection invalidation was attempted",
+                        clearFailure);
+            }
         }
     }
 
@@ -192,6 +230,10 @@ public class OracleAuditContextManager {
             return identity;
         }
 
+        private int scopes() {
+            return scopes;
+        }
+
         private void increment() {
             scopes++;
         }
@@ -215,7 +257,7 @@ public class OracleAuditContextManager {
         public void close() {
             if (!closed) {
                 closed = true;
-                manager.close(connection);
+                manager.releaseScope(connection);
             }
         }
     }
