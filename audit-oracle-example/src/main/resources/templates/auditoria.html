@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Auditoria — Audit Oracle</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-body-tertiary">
+<main class="container-fluid py-4 px-lg-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-1">Eventos de auditoria</h1>
+            <p class="text-secondary mb-0">Registros produzidos pelas triggers Oracle</p>
+        </div>
+        <a class="btn btn-outline-secondary" th:href="@{/}">Início</a>
+    </div>
+    <section class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                <tr>
+                    <th>Data/hora</th><th>CPF</th><th>Usuário</th><th>Operação</th>
+                    <th>Tabela</th><th>Registro</th><th>Request ID</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="evento : ${eventos}">
+                    <td class="text-nowrap" th:text="${evento.eventTimestamp}"></td>
+                    <td th:text="${evento.userCpf}"></td>
+                    <td th:text="${evento.userName}"></td>
+                    <td><span class="badge text-bg-secondary" th:text="${evento.operation}"></span></td>
+                    <td th:text="${evento.tableName}"></td>
+                    <td th:text="${evento.recordId}"></td>
+                    <td><code th:text="${evento.requestId}"></code></td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(eventos)}">
+                    <td colspan="7" class="text-center text-secondary py-4">Nenhum evento encontrado.</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>
