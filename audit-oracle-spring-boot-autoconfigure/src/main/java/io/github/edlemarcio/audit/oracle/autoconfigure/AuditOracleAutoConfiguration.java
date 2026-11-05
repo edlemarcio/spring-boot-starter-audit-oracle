@@ -4,6 +4,9 @@ import io.github.edlemarcio.audit.oracle.autoconfigure.oracle.OracleAuditContext
 import io.github.edlemarcio.audit.oracle.autoconfigure.transaction.AuditedTransactionAspect;
 import io.github.edlemarcio.audit.oracle.core.AuditIdentityProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.AutoConfigureAfter;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
+import org.springframework.boot.autoconfigure.transaction.TransactionAutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -16,6 +19,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import javax.sql.DataSource;
 
 @AutoConfiguration
+@AutoConfigureAfter({DataSourceAutoConfiguration.class, TransactionAutoConfiguration.class})
 @ConditionalOnProperty(prefix = "audit.oracle", name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(AuditOracleProperties.class)
 @EnableAspectJAutoProxy(proxyTargetClass = true)
