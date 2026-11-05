@@ -53,12 +53,14 @@ public class OracleAuditContextManager {
                 activeContexts.put(connection, new ContextState(identity));
                 return new Scope(this, connection);
             }
-        } catch (SQLException | RuntimeException exception) {
+        } catch (SQLException exception) {
+            invalidate(connection);
             DataSourceUtils.releaseConnection(connection, dataSource);
-            if (exception instanceof AuditContextException auditException) {
-                throw auditException;
-            }
-            throw new AuditContextException("Could not initialize Oracle audit context", exception);
+            throw new AuditContextException(
+                    "Could not inspect or initialize Oracle audit context; connection was invalidated", exception);
+        } catch (RuntimeException exception) {
+            DataSourceUtils.releaseConnection(connection, dataSource);
+            throw exception;
         }
     }
 
