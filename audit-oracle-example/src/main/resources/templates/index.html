@@ -24,7 +24,7 @@
                     </div>
                     <div class="d-flex flex-wrap gap-2 mt-4">
                         <a class="btn btn-primary btn-lg" th:if="${!authenticated}"
-                           th:href="@{/oauth2/authorization/keycloak}">Entrar</a>
+                           th:href="@{/oauth2/authorization/demo-oidc}">Entrar</a>
                         <a class="btn btn-primary" th:if="${authenticated}"
                            th:href="@{/clientes}">Abrir CRUD de clientes</a>
                         <a class="btn btn-outline-secondary" th:if="${authenticated}"
