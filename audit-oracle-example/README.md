@@ -22,4 +22,4 @@ Além do starter, a aplicação utiliza Spring MVC, Thymeleaf, Spring Data JPA, 
 
 ## Execução
 
-As instruções completas de Docker Compose, configuração OIDC, usuários de teste e execução serão incluídas no README global após a implementação do ambiente.
+Consulte o [README global](../README.md) e o [guia de desenvolvimento local](../docs/guides/local-development.md). O módulo deve ser compilado junto com suas dependências Maven antes de executar o Spring Boot plugin.
