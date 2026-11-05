@@ -62,7 +62,7 @@ public class OracleAuditContextManager {
                     @Override
                     public int getOrder() {
                         // Run before DataSourceUtils connection-release synchronizations.
-                        return org.springframework.core.Ordered.HIGHEST_PRECEDENCE;
+                        return DataSourceUtils.CONNECTION_SYNCHRONIZATION_ORDER - 1;
                     }
 
                     @Override
