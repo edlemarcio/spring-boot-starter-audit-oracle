@@ -2,34 +2,14 @@ package io.github.edlemarcio.audit.oracle.autoconfigure;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-/**
- * Configuration properties for the Oracle audit context integration.
- *
- * <p>These settings describe the database-side contract. They do not configure
- * an identity provider or an authentication protocol.</p>
- */
+/** Identity settings used by application-provided AuditContextProvider adapters. */
 @ConfigurationProperties(prefix = "audit.oracle")
 public class AuditOracleProperties {
 
-    /**
-     * Enables the Oracle audit integration.
-     */
     private boolean enabled = true;
-
-    /**
-     * Oracle application context namespace created by the database scripts.
-     */
-    private String contextNamespace = "CTX_AUDITORIA";
-
-    /**
-     * Stored package procedure used to set the context.
-     */
-    private String setContextProcedure = "PKG_AUDITORIA_CONTEXT.SET_CONTEXT";
-
-    /**
-     * Stored package procedure used to clear the context.
-     */
-    private String clearContextProcedure = "PKG_AUDITORIA_CONTEXT.CLEAR_CONTEXT";
+    private String application = "application";
+    private String userClaim = "sub";
+    private String systemUser = "SISTEMA:ROTINA";
 
     public boolean isEnabled() {
         return enabled;
@@ -39,28 +19,27 @@ public class AuditOracleProperties {
         this.enabled = enabled;
     }
 
-    public String getContextNamespace() {
-        return contextNamespace;
+    public String getApplication() {
+        return application;
     }
 
-    public void setContextNamespace(String contextNamespace) {
-        this.contextNamespace = contextNamespace;
+    public void setApplication(String application) {
+        this.application = application;
     }
 
-    public String getSetContextProcedure() {
-        return setContextProcedure;
+    public String getUserClaim() {
+        return userClaim;
     }
 
-    public void setSetContextProcedure(String setContextProcedure) {
-        this.setContextProcedure = setContextProcedure;
+    public void setUserClaim(String userClaim) {
+        this.userClaim = userClaim;
     }
 
-    public String getClearContextProcedure() {
-        return clearContextProcedure;
+    public String getSystemUser() {
+        return systemUser;
     }
 
-    public void setClearContextProcedure(String clearContextProcedure) {
-        this.clearContextProcedure = clearContextProcedure;
+    public void setSystemUser(String systemUser) {
+        this.systemUser = systemUser;
     }
-
 }

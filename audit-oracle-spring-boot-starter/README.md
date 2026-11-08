@@ -1,21 +1,7 @@
 # audit-oracle-spring-boot-starter
 
-## Responsabilidade
+Dependência de conveniência que inclui a auto-configuração do pool Oracle auditado. A aplicação fornece um `AuditContextProvider` e configura sua conexão em `spring.datasource.*` e `spring.datasource.hikari.*`.
 
-Dependência de conveniência que disponibiliza a auto-configuração do Audit Oracle em aplicações Spring Boot.
+O starter não inclui autenticação, interface web ou configuração do Keycloak. Não exige anotação de auditoria nos serviços: as conexões do `AuditDataSource` transportam usuário/IP/aplicativo automaticamente. O controle transacional continua com `@Transactional`.
 
-## Uso previsto
-
-A aplicação adicionará esta dependência e fornecerá um `AuditIdentityProvider` compatível com seu contexto de autenticação.
-
-## Independência
-
-Este módulo não inclui:
-
-- Keycloak adapters ou SDKs;
-- Spring Security OAuth2 Client;
-- Thymeleaf;
-- componentes da aplicação de demonstração;
-- configuração de realm, usuários ou client OIDC.
-
-O provedor de identidade permanece uma decisão da aplicação consumidora.
+Consulte o [README](../README.md) e o [guia stateless](../docs/guides/stateless-api.md).

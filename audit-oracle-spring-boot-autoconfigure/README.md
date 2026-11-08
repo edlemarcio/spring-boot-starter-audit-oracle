@@ -1,58 +1,20 @@
 # audit-oracle-spring-boot-autoconfigure
 
-## Responsabilidade
+Registra um único `AuditDataSource`, que estende o próprio HikariCP, preservando `spring.datasource.*`, `spring.datasource.hikari.*`, métricas e encerramento. A aplicação deve fornecer um bean `AuditContextProvider`. Sem ele, a inicialização falha.
 
-Integra os contratos de `audit-oracle-core` ao ecossistema Spring Boot. Concentra propriedades, auto-configuração, transação auditada e gerenciamento do contexto Oracle.
+O provider é consultado antes de obter a conexão. `AuditConnection` configura usuário/IP/aplicativo na mesma conexão com `SET_IDENTIFIER`, `SET_CLIENT_INFO` e `SET_MODULE`. Os atributos permanecem durante DML, flush, commit e rollback. O `close` desfaz trabalho pendente, limpa o contexto e devolve a conexão. Falhas de configuração, rollback ou limpeza descartam a conexão.
 
-## API inicial
-
-A aplicação fornece um bean `AuditIdentityProvider`. O starter disponibiliza a anotação `@Audited` para métodos de serviço que executam operações DML:
-
-```java
-@Service
-public class ClienteService {
-
-    @Audited
-    public Cliente salvar(Cliente cliente) {
-        return repository.save(cliente);
-    }
-}
-```
-
-A anotação abre a transação usando o `PlatformTransactionManager`, resolve a identidade autenticada, define o contexto na conexão JDBC da transação e executa o método. Uma sincronização limpa o contexto em `afterCompletion`, depois do flush/commit ou rollback e antes da liberação da conexão.
-
-`@Audited` é responsável pelo limite transacional do método. Não coloque uma anotação `@Transactional` conflitante no mesmo método. A propagação é configurada pela própria anotação, por exemplo:
-
-```java
-@Audited(propagation = Propagation.REQUIRES_NEW)
-public void registrarOperacaoIndependente() {
-    // DML auditável
-}
-```
-
-## Propriedades
+Não há anotação própria de auditoria nem controle transacional adicional. Use `@Transactional` e sua propagação normal. O mecanismo também acompanha conexões usadas diretamente por JDBC.
 
 ```yaml
 audit:
   oracle:
     enabled: true
-    context-namespace: CTX_AUDITORIA
-    set-context-procedure: PKG_AUDITORIA_CONTEXT.SET_CONTEXT
-    clear-context-procedure: PKG_AUDITORIA_CONTEXT.CLEAR_CONTEXT
-    fail-on-missing-identity: true
+    application: minha-aplicacao
+    user-claim: sub
+    system-user: 'SISTEMA:ROTINA'
 ```
 
-## Segurança e ciclo de vida
+O provider do exemplo usa os três últimos campos para resolver o contexto. Um provider customizado é responsável por respeitar esse contrato. Pools customizados devem ser `AuditDataSource`; uma configuração que contornaria a auditoria é rejeitada. Desabilite explicitamente `audit.oracle.enabled` para H2.
 
-- O starter não conhece Keycloak, JWT, Thymeleaf ou qualquer protocolo de autenticação.
-- O provider deve retornar apenas uma identidade autenticada e confiável.
-- A identidade é associada ao objeto de conexão JDBC, não a um ThreadLocal.
-- Escopos aninhados na mesma conexão preservam a identidade original e só o escopo proprietário limpa o contexto.
-- Conexões distintas, como em `REQUIRES_NEW`, recebem contexto independente.
-- O contexto Oracle é estado de sessão e deve ser removido antes da conclusão do método auditado.
-- Se a sessão já possuir contexto inesperado ou não for possível verificar/limpar o contexto, a conexão é invalidada.
-- A integração deve ser validada com o transaction manager e o pool reais da aplicação antes de produção.
-
-## Limitações atuais
-
-O módulo está em desenvolvimento. Ainda faltam testes de integração com Oracle 19c para comprovar JPA/JDBC na mesma sessão, rollback, concorrência, propagação `REQUIRES_NEW`, falha de limpeza e reutilização HikariCP.
+Veja o [contrato de sessão e a configuração operacional](../README.md) e os [testes Oracle](../docs/implementation-status.md).

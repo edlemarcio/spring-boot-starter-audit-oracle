@@ -1,25 +1,11 @@
 # audit-oracle-example
 
-Aplicação web demonstrativa do starter.
+Demonstra o contrato de auditoria do TRE: usuário em `CLIENT_IDENTIFIER`, IP em `CLIENT_INFO` e aplicativo em `MODULE`. Usa login OIDC, CRUD JPA e consulta dos 200 eventos DML mais recentes, incluindo valores anteriores e novos em JSON.
 
-## Funcionalidades planejadas
+`SecurityAuditContextProvider` implementa o contrato da aplicação. Ele lê o principal validado pelo Spring Security e o IP de `getRemoteAddr`, sem armazenar o usuário anterior. Suporta OIDC, JWT e outros principais autenticados. O claim padrão é `sub`, configurável por `AUDIT_USER_CLAIM`; o aplicativo usa `AUDIT_APPLICATION`.
 
-- Página de boas-vindas Thymeleaf.
-- Login OIDC usando Spring Security OAuth2 Client.
-- CRUD de clientes com Spring Data JPA.
-- Tela de consulta dos eventos DML de auditoria, incluindo JSON dos valores anteriores e posteriores.
-- Exibição de CPF, nome, operação, tabela, chave do registro, instante e correlation ID, conforme o modelo de auditoria.
+HTTP sem autenticação válida é rejeitado. Rotinas sem HTTP e sem autenticação usam `SISTEMA:ROTINA` e `0.0.0.0`; autenticação propagada é mantida. Configure `TRUSTED_PROXY_REGEX` para os proxies autorizados antes de publicar atrás de ingress/proxy reverso.
 
-## Arquitetura
+O CRUD usa `@Transactional`. O pool aplica o contexto a toda conexão, inclusive nas leituras; as triggers registram somente INSERT, UPDATE e DELETE. SELECT continua fora do escopo de auditoria. A consulta de logs exige `AUDIT_VIEWER` ou `ADMIN`.
 
-A aplicação é a responsável pela autenticação. No ambiente local, o Keycloak emite tokens OIDC/JWT; a integração ocorre por protocolos e APIs padrão do Spring Security. O código da aplicação não usará SDK ou adapter específico do Keycloak.
-
-A aplicação fornece a implementação de `AuditIdentityProvider`, adaptando o principal OIDC autenticado aos campos de auditoria. Essa implementação pertence somente a este módulo. O CRUD realiza SELECT, INSERT, UPDATE e DELETE; as triggers atuais registram INSERT, UPDATE e DELETE. A auditoria de SELECT será tratada separadamente com Fine-Grained Auditing (FGA) ou política equivalente.
-
-## Dependências
-
-Além do starter, a aplicação utiliza Spring MVC, Thymeleaf, Spring Data JPA, Spring Security OAuth2 Client e driver JDBC Oracle. Nenhuma dessas dependências de interface/autenticação é transitiva do starter.
-
-## Execução
-
-Consulte o [README global](../README.md) e o [guia de desenvolvimento local](../docs/guides/local-development.md). O módulo deve ser compilado junto com suas dependências Maven antes de executar o Spring Boot plugin.
+CPF permanece um campo de negócio de `CLIENTE`; não é obrigatório para identificar o autor da operação. A interface de auditoria exibe usuário, IP e aplicativo. Consulte o [guia local](../docs/guides/local-development.md), o [banco e migração](../database/oracle-19c/README.md) e o [README global](../README.md).

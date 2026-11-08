@@ -1,56 +1,56 @@
 # Integração em API stateless com JWT
 
-O starter não depende de Spring Security nem de um provedor OIDC. Em uma API stateless, a própria aplicação valida o JWT com Spring Security Resource Server e fornece um `AuditIdentityProvider`.
+A aplicação valida assinatura, issuer e audience usando Spring Security Resource Server. O starter permanece independente de Spring Security; o provider pertence à aplicação.
 
-Exemplo ilustrativo:
+Implemente `AuditContextProvider` com a mesma resolução do TRE. Exemplo de adaptador para uma API servlet:
 
 ```java
 @Component
-public class JwtAuditIdentityProvider implements AuditIdentityProvider {
+public class JwtAuditContextProvider implements AuditContextProvider {
+    private final String application;
+    private final String userClaim;
+    private final AuditContext systemContext;
+
+    public JwtAuditContextProvider(AuditOracleProperties properties) {
+        this.application = properties.getApplication();
+        this.userClaim = properties.getUserClaim();
+        this.systemContext = new AuditContext(properties.getSystemUser(), "0.0.0.0", application);
+    }
 
     @Override
-    public Optional<AuditIdentity> getCurrentIdentity() {
-        Authentication authentication =
-                SecurityContextHolder.getContext().getAuthentication();
-
-        if (!(authentication instanceof JwtAuthenticationToken jwtAuth)) {
-            return Optional.empty();
+    public AuditContext getContext() {
+        var attributes = RequestContextHolder.getRequestAttributes();
+        var request = attributes instanceof ServletRequestAttributes servlet ? servlet.getRequest() : null;
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || authentication instanceof AnonymousAuthenticationToken) {
+            if (request != null) {
+                throw new IllegalStateException("Requisição sem usuário autenticado");
+            }
+            return systemContext;
         }
-
-        Jwt jwt = jwtAuth.getToken();
-        String cpf = jwt.getClaimAsString("cpf");
-        String name = jwt.getClaimAsString("name");
-        String requestId = MDC.get("requestId");
-
-        if (cpf == null || name == null || requestId == null) {
-            return Optional.empty();
+        if (!(authentication instanceof JwtAuthenticationToken jwt)) {
+            throw new IllegalStateException("Autenticação JWT esperada");
         }
-
-        return Optional.of(new AuditIdentity(cpf, name, requestId));
+        return new AuditContext(jwt.getToken().getClaimAsString(userClaim),
+                request == null ? "0.0.0.0" : request.getRemoteAddr(), application);
     }
 }
 ```
 
-O exemplo acima é um adaptador da aplicação, não uma classe do starter. A aplicação deve configurar o Resource Server para validar assinatura, issuer e audience do token. Os claims de identidade só podem ser utilizados depois dessa validação.
+Configure `audit.oracle.application`, `user-claim` (padrão `sub`) e `system-user` (padrão `SISTEMA:ROTINA`). Não use parâmetros HTTP como identidade. Não substitua um claim ausente por nome de exibição ou identidade técnica. Uma identidade propagada para execução sem HTTP é preservada.
 
-O serviço que executa DML usa `@Audited`:
+No exemplo OIDC, o adaptador equivalente está em `audit-oracle-example/.../SecurityAuditContextProvider.java` e também suporta principal JWT.
+
+Use as transações normais do Spring:
 
 ```java
-@Service
-public class PedidoService {
-
-    @Audited
-    public Pedido atualizar(Pedido pedido) {
-        return repository.save(pedido);
-    }
+@Transactional(propagation = Propagation.REQUIRES_NEW)
+public void registrarOperacaoIndependente() {
+    // DML de negócio, com auditoria na mesma transação.
 }
 ```
 
-## Regras de uso
+A auditoria acompanha o pool, inclusive comandos JDBC sem anotação de serviço. Não há requisito de interceptação AOP para configurar os metadados. A anotação transacional continua sujeita às regras normais do proxy Spring.
 
-- Os métodos anotados devem ser métodos públicos de beans Spring e chamados através do proxy Spring; self-invocation não é interceptada por AOP.
-- `@Audited` controla o limite transacional. Não coloque `@Transactional` conflitante no mesmo método.
-- Use `@Audited(propagation = Propagation.REQUIRES_NEW)` quando a operação realmente precisar de transação independente.
-- O provider deve retornar identidade de usuário técnico explicitamente para rotinas de sistema; não reutilize CPF de usuário anterior.
-- Não aceite CPF/nome de headers ou parâmetros HTTP sem validação de identidade.
-- O request ID deve ser gerado ou validado pela aplicação e propagado por toda a operação.
+Configure proxies autorizados no servidor para que `getRemoteAddr` represente o cliente real. O provider não deve interpretar diretamente cabeçalhos encaminhados arbitrários. Reserve `CLIENT_INFO` ao IP e utilize sempre o `AuditDataSource` registrado pelo starter.

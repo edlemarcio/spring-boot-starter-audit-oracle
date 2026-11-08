@@ -36,7 +36,7 @@ Se não importar o realm, crie o realm `audit-demo` e um client OpenID Connect c
 - Web origin: `http://localhost:8080`
 - PKCE code challenge method: S256
 
-Crie os roles `USER`, `AUDIT_VIEWER` e `ADMIN`, os usuários acima e o mapper de atributo de usuário para o claim `cpf`. Adicione também um mapper de realm roles para publicar `realm_access.roles` no ID Token.
+Crie os roles `USER`, `AUDIT_VIEWER` e `ADMIN` e os usuários acima. Adicione um mapper de realm roles para publicar `realm_access.roles` no ID Token. A auditoria usa o claim padrão `sub`; o claim `cpf` da demonstração é opcional para a autoria. `AUDIT_USER_CLAIM=preferred_username` permite usar o login único do emissor.
 
 ## Segurança
 

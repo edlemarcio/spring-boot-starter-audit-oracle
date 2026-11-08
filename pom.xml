@@ -10,7 +10,7 @@
     <packaging>pom</packaging>
 
     <name>Spring Boot Starter Audit Oracle</name>
-    <description>Transaction-aware Oracle auditing context integration for Spring applications.</description>
+    <description>Connection-based Oracle session auditing for Spring applications.</description>
     <url>https://github.com/edlemarcio/spring-boot-starter-audit-oracle</url>
 
     <modules>

@@ -17,21 +17,22 @@ public class AuditLogQueryRepository {
 
     public List<AuditLogEntry> findLatest() {
         return jdbcTemplate.query("""
-                SELECT ID, EVENT_TIMESTAMP, USER_CPF, USER_NAME, OPERATION,
-                       TABLE_NAME, RECORD_ID, REQUEST_ID, OLD_VALUES, NEW_VALUES
+                SELECT ID, EVENT_TIMESTAMP, NM_USUARIO_APLICACAO, NR_IP_APLICACAO, NM_APLICATIVO,
+                       OPERATION, TABLE_NAME, RECORD_ID, OLD_VALUES, NEW_VALUES
                   FROM AUDIT_LOG
                  ORDER BY EVENT_TIMESTAMP DESC, ID DESC
+                 FETCH FIRST 200 ROWS ONLY
                 """, (rs, rowNum) -> {
             Timestamp timestamp = rs.getTimestamp("EVENT_TIMESTAMP");
             return new AuditLogEntry(
                     rs.getLong("ID"),
                     timestamp == null ? null : timestamp.toLocalDateTime(),
-                    rs.getString("USER_CPF"),
-                    rs.getString("USER_NAME"),
+                    rs.getString("NM_USUARIO_APLICACAO"),
+                    rs.getString("NR_IP_APLICACAO"),
+                    rs.getString("NM_APLICATIVO"),
                     rs.getString("OPERATION"),
                     rs.getString("TABLE_NAME"),
                     rs.getString("RECORD_ID"),
-                    rs.getString("REQUEST_ID"),
                     rs.getString("OLD_VALUES"),
                     rs.getString("NEW_VALUES")
             );

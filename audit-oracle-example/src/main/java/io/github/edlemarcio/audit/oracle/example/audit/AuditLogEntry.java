@@ -5,12 +5,12 @@ import java.time.LocalDateTime;
 public record AuditLogEntry(
         Long id,
         LocalDateTime eventTimestamp,
-        String userCpf,
-        String userName,
+        String user,
+        String ip,
+        String application,
         String operation,
         String tableName,
         String recordId,
-        String requestId,
         String oldValues,
         String newValues
 ) {

@@ -1,28 +1,34 @@
-# Oracle 19c — schema e auditoria
+# Oracle — contrato de sessão e scripts
 
-## Ordem de execução
+## Schema novo
 
-Execute os scripts no schema da aplicação, ajustando owner e grants conforme o ambiente:
+1. Crie o schema de aplicação com `CREATE SESSION`, `CREATE TABLE`, `CREATE TRIGGER` e quota suficiente, usando a conta de implantação.
+2. Execute `02_audit_tables.sql`.
+3. Execute `03_cliente_audit_triggers.sql`.
 
-1. `01_audit_context.sql` — package PL/SQL e Application Context.
-2. `02_audit_tables.sql` — tabela de exemplo e tabela de auditoria.
-3. `03_cliente_audit_triggers.sql` — trigger DML demonstrativa.
+`01_audit_session.sql` é uma consulta de diagnóstico. Não instala objetos. Não há necessidade de criar Application Context ou package próprio. Os privilégios runtime devem permitir DML no schema e execução dos procedimentos nativos `DBMS_SESSION.SET_IDENTIFIER/CLEAR_IDENTIFIER` e `DBMS_APPLICATION_INFO.SET_CLIENT_INFO/SET_MODULE` conforme a política do ambiente.
 
-## Application Context
+## Contrato compatível com o TRE
 
-O namespace `CTX_AUDITORIA` contém `CPF`, `NOME` e `REQUEST_ID`. O package confiável valida os parâmetros antes de definir o contexto.
+| Campo de log | Origem |
+| --- | --- |
+| `NM_USUARIO_APLICACAO` | `CLIENT_IDENTIFIER`, com fallback para `SESSION_USER` |
+| `NR_IP_APLICACAO` | `CLIENT_INFO`, depois `IP_ADDRESS`, depois `0.0.0.0`; até 45 caracteres |
+| `NM_APLICATIVO` | `MODULE` |
 
-O contexto é estado da sessão Oracle: COMMIT e ROLLBACK não o removem. A aplicação precisa limpar o contexto antes de devolver a conexão ao HikariCP. Se a limpeza falhar, a conexão deve ser descartada.
+A aplicação configura os três campos no checkout e limpa no fechamento da mesma conexão. Commit e rollback não limpam automaticamente a sessão. A trigger grava na transação do DML, sem transação autônoma. Sessões SQL diretas sem metadados da aplicação continuam funcionando com os fallbacks do TRE.
 
-## Segurança
+`AUDIT_LOG` é a estrutura demonstrativa. Aplicações com tabelas `LOG_*` podem manter seu modelo e usar o mesmo contrato. A trigger atual cobre INSERT, UPDATE e DELETE de CLIENTE. SELECT requer mecanismo separado.
 
-- Execute os scripts com um usuário de implantação controlado.
-- Conceda EXECUTE no package somente ao usuário técnico que precisa definir o contexto.
-- Não conceda acesso irrestrito ao package a usuários finais.
-- O package não autentica o usuário final. A aplicação deve obter a identidade de um principal autenticado e confiável.
-- A trigger falha de forma fechada quando os atributos de auditoria não estão presentes.
-- A trigger registra DML na mesma transação; rollback também reverte o registro de auditoria.
+## Atualizar uma base da POC anterior
 
-## Escopo
+Esta é uma mudança de contrato da POC ainda não publicada como versão estável. Para uma base que já usa CPF/nome/request ID:
 
-A trigger de exemplo audita INSERT, UPDATE e DELETE da tabela CLIENTE. SELECT não é capturado por triggers DML e requer mecanismo separado.
+1. Pare a aplicação anterior e preserve um backup conforme o procedimento local.
+2. Execute `migrations/01_from_application_context.sql` uma única vez.
+3. Execute `03_cliente_audit_triggers.sql` para substituir a trigger.
+4. Publique a aplicação nova e verifique novos eventos com usuário, IP e aplicativo.
+
+Não execute `02_audit_tables.sql` numa base existente. A migração adiciona os campos do contrato de sessão, permite NULL nos campos antigos e preserva todos os valores históricos de CPF/nome/request ID. Os campos novos permanecem NULL nos eventos anteriores; a aplicação não inventa metadados históricos. O package/contexto anterior pode permanecer instalado, mas não é mais utilizado. DDL Oracle possui commits implícitos: os passos não constituem uma transação única.
+
+Os testes Oracle de migração e scripts devem usar schema exclusivo: criam e removem `CLIENTE`, `AUDIT_LOG` e `AUDIT_TEST_*`.

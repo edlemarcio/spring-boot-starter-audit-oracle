@@ -33,10 +33,14 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+  forward-headers-strategy: native
+  tomcat:
+    remoteip:
+      internal-proxies: '${TRUSTED_PROXY_REGEX:127\.0\.0\.1|::1|0:0:0:0:0:0:0:1}'
 
 audit:
   oracle:
     enabled: true
-    context-namespace: CTX_AUDITORIA
-    set-context-procedure: PKG_AUDITORIA_CONTEXT.SET_CONTEXT
-    clear-context-procedure: PKG_AUDITORIA_CONTEXT.CLEAR_CONTEXT
+    application: ${AUDIT_APPLICATION:audit-oracle-example}
+    user-claim: ${AUDIT_USER_CLAIM:sub}
+    system-user: 'SISTEMA:ROTINA'

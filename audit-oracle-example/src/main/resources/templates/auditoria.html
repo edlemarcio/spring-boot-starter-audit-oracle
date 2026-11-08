@@ -20,19 +20,19 @@
             <table class="table table-hover align-middle mb-0">
                 <thead class="table-light">
                 <tr>
-                    <th>Data/hora</th><th>CPF</th><th>Usuário</th><th>Operação</th>
-                    <th>Tabela</th><th>Registro</th><th>Request ID</th><th>Valores anteriores</th><th>Valores novos</th>
+                    <th>Data/hora</th><th>Usuário</th><th>IP</th><th>Aplicativo</th><th>Operação</th>
+                    <th>Tabela</th><th>Registro</th><th>Valores anteriores</th><th>Valores novos</th>
                 </tr>
                 </thead>
                 <tbody>
                 <tr th:each="evento : ${eventos}">
                     <td class="text-nowrap" th:text="${evento.eventTimestamp}"></td>
-                    <td th:text="${evento.userCpf}"></td>
-                    <td th:text="${evento.userName}"></td>
+                    <td th:text="${evento.user}"></td>
+                    <td th:text="${evento.ip}"></td>
+                    <td th:text="${evento.application}"></td>
                     <td><span class="badge text-bg-secondary" th:text="${evento.operation}"></span></td>
                     <td th:text="${evento.tableName}"></td>
                     <td th:text="${evento.recordId}"></td>
-                    <td><code th:text="${evento.requestId}"></code></td>
                     <td><details th:if="${evento.oldValues}"><summary>Visualizar</summary><pre class="small mt-2" th:text="${evento.oldValues}"></pre></details></td>
                     <td><details th:if="${evento.newValues}"><summary>Visualizar</summary><pre class="small mt-2" th:text="${evento.newValues}"></pre></details></td>
                 </tr>

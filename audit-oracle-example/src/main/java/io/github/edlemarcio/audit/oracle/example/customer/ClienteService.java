@@ -1,7 +1,7 @@
 package io.github.edlemarcio.audit.oracle.example.customer;
 
-import io.github.edlemarcio.audit.oracle.autoconfigure.annotation.Audited;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -23,12 +23,12 @@ public class ClienteService {
         return repository.findById(id);
     }
 
-    @Audited
+    @Transactional
     public Cliente salvar(Cliente cliente) {
         return repository.save(cliente);
     }
 
-    @Audited
+    @Transactional
     public void excluir(Long id) {
         repository.deleteById(id);
     }

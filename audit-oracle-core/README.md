@@ -1,19 +1,10 @@
 # audit-oracle-core
 
-## Responsabilidade
+Contrato mínimo independente de Spring, Spring Security, JDBC, JPA, Oracle e Keycloak.
 
-Módulo mínimo e independente de framework. Contém somente os tipos e contratos que representam a identidade de auditoria.
+- `AuditContext(user, ip, application)`: usuário único, IP literal IPv4/IPv6 e identificador do aplicativo.
+- `AuditContextProvider.getContext()`: resolve o contexto confiável de cada obtenção de conexão.
 
-## Limites
+O usuário admite até 64 bytes UTF-8, o aplicativo até 48 bytes e o IP até 45 caracteres. Identidades vazias, caracteres de controle e valores acima do limite são rejeitados, sem truncamento. IPs são literais; não são resolvidos nomes DNS.
 
-- Não depende de Spring, Spring Security, JPA, JDBC, Oracle ou Keycloak.
-- Não extrai claims de JWT.
-- Não autentica usuários.
-- Não executa SQL nem controla transações.
-
-A aplicação consumidora (ou a integração Spring do starter) fornece uma implementação do contrato de identidade usando o mecanismo de autenticação que já adota.
-
-## Contratos
-
-- `AuditIdentity`: CPF, nome e identificador de correlação.
-- `AuditIdentityProvider`: fonte da identidade autenticada para a operação atual.
+A implementação do provider pertence à aplicação. Ela deve consultar a autenticação atual, recusar HTTP anônimo e fornecer identidade técnica explícita para rotinas sem usuário. `AuditContext.UNAVAILABLE_IP` representa ausência de IP HTTP (`0.0.0.0`).
