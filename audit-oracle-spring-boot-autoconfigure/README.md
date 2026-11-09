@@ -2,7 +2,7 @@
 
 Registra um único `AuditDataSource`, que estende o próprio HikariCP, preservando `spring.datasource.*`, `spring.datasource.hikari.*`, métricas e encerramento. A aplicação deve fornecer um bean `AuditContextProvider`. Sem ele, a inicialização falha.
 
-O provider é consultado antes de obter a conexão. `AuditConnection` configura usuário/IP/aplicativo na mesma conexão com `SET_IDENTIFIER`, `SET_CLIENT_INFO` e `SET_MODULE`. Os atributos permanecem durante DML, flush, commit e rollback. O `close` desfaz trabalho pendente, limpa o contexto e devolve a conexão. Falhas de configuração, rollback ou limpeza descartam a conexão.
+O provider é consultado antes de obter a conexão. `AuditConnection` limpa o contexto anterior e configura usuário/IP/aplicativo na mesma conexão com `SET_IDENTIFIER`, `SET_CLIENT_INFO` e `SET_MODULE`. Os atributos permanecem durante DML, flush, commit e rollback. O `close` desfaz trabalho pendente, limpa novamente o contexto e devolve a conexão. Falhas de configuração, rollback ou de qualquer uma das limpezas seguem o mecanismo existente de descarte.
 
 Não há anotação própria de auditoria nem controle transacional adicional. Use `@Transactional` e sua propagação normal. O mecanismo também acompanha conexões usadas diretamente por JDBC.
 

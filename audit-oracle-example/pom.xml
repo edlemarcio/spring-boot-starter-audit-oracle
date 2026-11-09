@@ -14,6 +14,18 @@
     <dependencies>
         <dependency>
             <groupId>io.github.edlemarcio</groupId>
+            <artifactId>audit-oracle-spring-boot-autoconfigure</artifactId>
+            <version>${project.version}</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.github.edlemarcio</groupId>
             <artifactId>audit-oracle-spring-boot-starter</artifactId>
             <version>${project.version}</version>
         </dependency>

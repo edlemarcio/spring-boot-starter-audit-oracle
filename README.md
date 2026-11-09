@@ -41,7 +41,7 @@ A auditoria é automática em cada conexão obtida do pool, inclusive fora de um
 ## Ciclo da conexão
 
 1. O provider resolve e valida o contexto antes de obter uma conexão do pool.
-2. Um bloco PL/SQL parametrizado executa `DBMS_SESSION.SET_IDENTIFIER`, `DBMS_APPLICATION_INFO.SET_CLIENT_INFO` e `SET_MODULE` nessa conexão.
+2. A conexão emprestada tem os atributos de auditoria limpos antes de um bloco PL/SQL parametrizado executar `DBMS_SESSION.SET_IDENTIFIER`, `DBMS_APPLICATION_INFO.SET_CLIENT_INFO` e `SET_MODULE` para a identidade atual.
 3. O contexto permanece durante os comandos, flush do Hibernate, commit ou rollback.
 4. No fechamento, trabalho pendente é desfeito antes de limpar os três campos. Só então a conexão retorna ao pool.
 5. Falhas de configuração, rollback ou limpeza descartam a conexão. Se descarte e abort falharem, ela não é devolvida ao pool.
@@ -116,6 +116,16 @@ mvn clean verify
 
 A suíte cobre validação, identidade OIDC/JWT, pool único, configuração Hikari, falhas e descarte, reutilização da sessão, IPv6, concorrência, `REQUIRES_NEW`, rollback, flush com `orphanRemoval`, CRUD via `JpaTransactionManager`, scripts Oracle e migração dos logs antigos. Sem as variáveis, os testes Oracle são explicitamente ignorados.
 
+## Concorrência, falhas e estresse manual
+
+A [bateria manual](docs/audit-concurrency.md) combina cenários determinísticos, dez mutações e estresse de 15 minutos em Oracle/HikariCP reais. A aprovação exige Oracle 19c e Free 23. A única alteração funcional desta rodada é a dupla limpeza, na entrada e na saída do pool; as demais [regressões encontradas](docs/audit-concurrency-findings.md) continuam em acompanhamento.
+
+```bash
+./scripts/test-audit-concurrency.sh --expected-major 23
+```
+
+O runner provisiona um Free 23 descartável quando não há endpoint configurado, agrega os resultados em HTML/JSON/CSV e não adiciona agendamento ou jobs ao CI. O `verify` comum preserva a seleção anterior, sem a carga longa.
+
 ## Módulos e documentação
 
 - [Core](audit-oracle-core/README.md): contrato independente de framework.
@@ -123,6 +133,7 @@ A suíte cobre validação, identidade OIDC/JWT, pool único, configuração Hik
 - [Starter](audit-oracle-spring-boot-starter/README.md): dependência de conveniência.
 - [Exemplo](audit-oracle-example/README.md): autenticação e interface.
 - [Arquitetura](docs/architecture.md) e [status de validação](docs/implementation-status.md).
+- [Os cinco casos de falha e suas soluções](docs/audit-failures-explained.md): exemplos, diagramas, impactos e critérios de validação.
 
 ## Migração da API da POC
 

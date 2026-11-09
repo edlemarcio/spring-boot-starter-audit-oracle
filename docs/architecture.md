@@ -6,13 +6,15 @@ A aplicação autentica o usuário e fornece `AuditContextProvider`. O core vali
 
 O exemplo adapta os principais OIDC, JWT e outros principais Spring Security já autenticados. A resolução é feita a cada checkout. O claim padrão é `sub`; usuários com o mesmo nome de exibição continuam distintos. O nome do aplicativo é configuração explícita.
 
-## Mesmo mecanismo do TRE Condenações
+## Ciclo baseado no TRE Condenações
 
-`AuditConnection` configura `CLIENT_IDENTIFIER`, `CLIENT_INFO` e `MODULE` com um bloco PL/SQL parametrizado na conexão emprestada. Um proxy JDBC intercepta o fechamento; os demais comandos e exceções JDBC são preservados. Não há mapa global de conexões, ThreadLocal de auditoria, aspecto ou callback transacional.
+`AuditConnection` limpa os atributos de auditoria na conexão emprestada e depois configura `CLIENT_IDENTIFIER`, `CLIENT_INFO` e `MODULE` com um bloco PL/SQL parametrizado. Essa limpeza de entrada é o acréscimo autorizado na POC em relação ao ciclo anterior baseado no TRE; o projeto TRE não foi alterado nesta rodada. Um proxy JDBC intercepta o fechamento. Não há mapa global de conexões, ThreadLocal de auditoria, aspecto ou callback transacional.
 
-O contexto é estado da sessão física: commit e rollback não o limpam. Ele deve sobreviver ao flush e ao término da transação, inclusive quando o Hibernate remove filhos fisicamente. A limpeza acontece no `close`, antes da devolução ao HikariCP. Uma transação pendente recebe rollback antes da limpeza e da restauração de autocommit. A auditoria não faz commit do negócio.
+O contexto é estado da sessão física: commit e rollback não o limpam. Ele deve sobreviver ao flush e ao término da transação, inclusive quando o Hibernate remove filhos fisicamente. Além da limpeza de entrada, outra limpeza acontece no `close`, antes da devolução ao HikariCP. Uma transação pendente recebe rollback antes da limpeza e da restauração de autocommit. A auditoria não chama commit do negócio.
 
 Falhas de configuração, rollback ou limpeza exigem evicção. Se a evicção falhar, tenta-se `Connection.abort`. Se ambas falharem, a conexão permanece reservada, evitando devolver uma sessão contaminada. O fechamento é idempotente.
+
+A dupla limpeza usa o mesmo bloco `CLEAR_CONTEXT` nos dois pontos e acrescenta uma execução PL/SQL por checkout. Ela não altera o tratamento de aliases JDBC, unwrap ou a ordem de evicção/fechamento. Os [achados de concorrência](audit-concurrency-findings.md) documentam os limites conhecidos desses caminhos.
 
 Transações Spring permanecem normais, inclusive `REQUIRES_NEW`. Conexões diferentes recebem contextos independentes. A identidade de uma conexão permanece a do checkout até o fechamento; não se deve trocar de usuário dentro da mesma conexão/transação.
 

@@ -23,6 +23,7 @@ import static org.mockito.Mockito.when;
 class AuditConnectionTest {
 
     private final Connection original = mock(Connection.class);
+    private final CallableStatement checkoutClear = mock(CallableStatement.class);
     private final CallableStatement configure = mock(CallableStatement.class);
     private final CallableStatement clear = mock(CallableStatement.class);
     @SuppressWarnings("unchecked")
@@ -32,7 +33,7 @@ class AuditConnectionTest {
     void prepareConnection() throws SQLException {
         when(original.getAutoCommit()).thenReturn(true);
         when(original.prepareCall(AuditConnection.SET_CONTEXT)).thenReturn(configure);
-        when(original.prepareCall(AuditConnection.CLEAR_CONTEXT)).thenReturn(clear);
+        when(original.prepareCall(AuditConnection.CLEAR_CONTEXT)).thenReturn(checkoutClear, clear);
     }
 
     @Test
@@ -42,7 +43,9 @@ class AuditConnectionTest {
         verifyNoInteractions(clear);
         audited.close();
 
-        final var order = inOrder(configure, original, clear);
+        final var order = inOrder(checkoutClear, configure, original, clear);
+        order.verify(checkoutClear).execute();
+        order.verify(checkoutClear).close();
         order.verify(configure).setString(1, "ana");
         order.verify(configure).setString(2, "2001:db8::1");
         order.verify(configure).setString(3, "condenacoes-interno");
@@ -100,6 +103,27 @@ class AuditConnectionTest {
         final var order = inOrder(discard, original);
         order.verify(discard).accept(original);
         order.verify(original).close();
+    }
+
+    @Test
+    void deveRejeitarCheckoutSeLimpezaInicialFalhar() throws SQLException {
+        final var failure = new SQLException("limpeza inicial falhou");
+        when(checkoutClear.execute()).thenThrow(failure);
+        assertThatThrownBy(this::open).isSameAs(failure);
+        verifyNoInteractions(configure, clear);
+        final var order = inOrder(discard, original);
+        order.verify(discard).accept(original);
+        order.verify(original).close();
+    }
+
+    @Test
+    void deveDescartarSeLimpezaInicialLancarExcecaoDeRuntime() throws SQLException {
+        final var failure = new IllegalStateException("limpeza inicial falhou");
+        when(checkoutClear.execute()).thenThrow(failure);
+        assertThatThrownBy(this::open).isSameAs(failure);
+        verifyNoInteractions(configure, clear);
+        verify(discard).accept(original);
+        verify(original).close();
     }
 
     @Test

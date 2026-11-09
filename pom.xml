@@ -28,6 +28,7 @@
         <oracle-jdbc.version>23.9.0.25.07</oracle-jdbc.version>
         <maven.compiler.plugin.version>3.14.1</maven.compiler.plugin.version>
         <maven.surefire.plugin.version>3.5.4</maven.surefire.plugin.version>
+        <audit.excludedGroups>oracle-concurrency | oracle-stress</audit.excludedGroups>
     </properties>
 
     <dependencyManagement>
@@ -68,10 +69,28 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>${maven.surefire.plugin.version}</version>
+                    <configuration>
+                        <excludedGroups>${audit.excludedGroups}</excludedGroups>
+                    </configuration>
                 </plugin>
             </plugins>
         </pluginManagement>
     </build>
+
+    <profiles>
+        <profile>
+            <id>oracle-concurrency</id>
+            <properties>
+                <audit.excludedGroups>oracle-stress</audit.excludedGroups>
+            </properties>
+        </profile>
+        <profile>
+            <id>oracle-stress</id>
+            <properties>
+                <audit.excludedGroups></audit.excludedGroups>
+            </properties>
+        </profile>
+    </profiles>
 
     <scm>
         <connection>scm:git:git://github.com/edlemarcio/spring-boot-starter-audit-oracle.git</connection>

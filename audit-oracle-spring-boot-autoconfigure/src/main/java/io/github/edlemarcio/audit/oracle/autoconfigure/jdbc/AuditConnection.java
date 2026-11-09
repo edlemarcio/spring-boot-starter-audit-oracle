@@ -30,11 +30,14 @@ final class AuditConnection implements InvocationHandler {
 
     static Connection configure(final Connection connection, final AuditContext context,
                                  final Consumer<Connection> discard) throws SQLException {
-        try (CallableStatement statement = connection.prepareCall(SET_CONTEXT)) {
-            statement.setString(1, context.user());
-            statement.setString(2, context.ip());
-            statement.setString(3, context.application());
-            statement.execute();
+        try {
+            clearContext(connection);
+            try (CallableStatement statement = connection.prepareCall(SET_CONTEXT)) {
+                statement.setString(1, context.user());
+                statement.setString(2, context.ip());
+                statement.setString(3, context.application());
+                statement.execute();
+            }
         } catch (SQLException | RuntimeException e) {
             discardAndClose(connection, discard, e);
             throw e;
@@ -84,13 +87,19 @@ final class AuditConnection implements InvocationHandler {
             discardAndClose(connection, discard, e);
             throw e;
         }
-        try (CallableStatement statement = connection.prepareCall(CLEAR_CONTEXT)) {
-            statement.execute();
+        try {
+            clearContext(connection);
         } catch (SQLException | RuntimeException e) {
             discardAndClose(connection, discard, e);
             throw e;
         }
         connection.close();
+    }
+
+    private static void clearContext(final Connection connection) throws SQLException {
+        try (CallableStatement statement = connection.prepareCall(CLEAR_CONTEXT)) {
+            statement.execute();
+        }
     }
 
     private static void discardAndClose(final Connection connection, final Consumer<Connection> discard,
